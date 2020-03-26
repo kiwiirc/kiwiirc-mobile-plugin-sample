@@ -95,9 +95,13 @@ Plugins can include:
 
 - Code (`.js` and `.vue`). See [Extending the app code](#extending-the-app-code).
 
-- An `assets` directory. The contents of this directory will be copied to a `plugins/<plugin name>` directory inside the final bundle.
+- An `assets` directory. The contents of this directory will be copied to the `assets/` directory inside the final bundle.
 
-  For instance, the file `ns-kiwi-plugin-my-plugin/src/assets/images/my_img.jpg` can be accessed from the code with `background: url('~/plugins/ns-kiwi-plugin-my-plugin/images/my_img.png')'`.
+  For instance, the file `ns-kiwi-plugin-my-plugin/src/assets/images/my_img.jpg` can be accessed from the code with `background: url('~/assets/images/my_img.png')'`.
+
+  > Note: All plugin and app assets will be merged to the same `assets/` directory,
+  > so it may be a good idea to scope your plugin assets in a separate folder. e.g.
+  > `assets/my-plugin/images/my_img.png`.
 
 - A `platforms` directory. This directory holds resource files similar to the `mobile/app/App_Resources` directory. Check the [sample plugin project](https://github.com/kiwiirc/ns-kiwi-plugin-sample) to see the expected folder structure. This directory is used for image resources (see how to use them [here](https://docs.nativescript.org/ui/image-resources)). These can be accessed for example with `background: url('res://my_img')'`.
 
@@ -180,6 +184,6 @@ Remember to set the startup in `mobile/app/assets/config.json`:
        "themes": [
            {
                "name": "My Theme",
-               "url": "plugins/ns-kiwi-plugin-my-plugin/themes/my_theme.css"
+               "url": "assets/themes/my_theme.css"
            },
    ```
