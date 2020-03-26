@@ -1,0 +1,11 @@
+{
+    "name": "ns-kiwi-plugin-sample",
+    "version": "0.0.1",
+    "main": "index.js",
+    "nativescript": {
+        "platforms": {
+            "android": "4.0.0",
+            "ios": "4.0.0"
+        }
+    }
+}
