@@ -6,184 +6,220 @@ This project is a sample plugin for the Kiwi mobile app.
 
 The Kiwi mobile app has a plugin system, similar to the [Kiwi web app plugin system](https://github.com/kiwiirc/kiwiirc/wiki/Plugins).
 
-## Plugin installation
+## Creating a plugin
 
-You can install Kiwi app mobile plugins like any other NativeScript plugin, i.e. with `tns plugin install <plugin>`. See the command documentation [here](https://docs.nativescript.org/tooling/docs-cli/lib-management/plugin-install).
+These Kiwi mobile plugins are [NativeScript plugins](https://docs.nativescript.org/plugins/plugin-reference). 
+This means that they must follow the [NativeScript plugin requirements](https://docs.nativescript.org/plugins/plugin-reference#create-a-plugin).
 
-As you can see in the [docs](https://docs.nativescript.org/plugins/plugin-reference#install-a-plugin), you can install plugins from:
+Use the [ns-kiwi-plugin-sample](https://github.com/kiwiirc/ns-kiwi-plugin-sample) as a starting point.
 
-- Npm registry. See more about publishing to npm [here](https://github.com/NativeScript/nativescript-plugin-seed).
+1. Download the repo as a [.zip file](https://github.com/kiwiirc/ns-kiwi-plugin-sample/archive/master.zip);
 
-- A local path: `tns plugin install /path/to/plugin/src`. Notice that you must point to the
-  `src/` directory containing the `package.json`.
+2. Change the name of the package in `src/package.json` (e.g. `my-kiwi-plugin`);
 
-- A local `.tar.gz` of the directory containing the `package.json`: `tns plugin install /path/to/plugin.tar.gz`;
+3. Install the plugin
+  As you can see in the [docs](https://docs.nativescript.org/plugins/plugin-reference#install-a-plugin), you can install plugins from:
 
-- A remote `.tar.gz` of the directory containing the `package.json`: `tns plugin install https://example.com/plugin.tar.gz`.
+  - Npm registry. See more about publishing to npm [here](https://github.com/NativeScript/nativescript-plugin-seed).
 
-# Plugin development
+  - A local path: `ns plugin install /path/to/plugin/src`. Notice that you must point to the
+    `src/` directory containing the `package.json`.
 
-## Creating a Kiwi mobile app plugin
+  - A local `.tar.gz` of the directory containing the `package.json`: `ns plugin install /path/to/plugin.tar.gz`;
 
-Kiwi mobile plugins are [NativeScript plugins](https://docs.nativescript.org/plugins/plugin-reference).
-This means that they must follow the [NativeScript plugin requirements](https://docs.nativescript.org/plugins/plugin-reference#create-a-plugin). Additionally, Kiwi plugins names MUST start with
-`ns-kiwi-plugin-`, e.g. `ns-kiwi-plugin-sample`.
+  - A remote `.tar.gz` of the directory containing the `package.json`: `ns plugin install https://example.com/plugin.tar.gz`.
 
-You can see the [sample plugin here](https://github.com/kiwiirc/ns-kiwi-plugin-sample).
+Inside the main `.js` file (`src/index.js`), you must register a plugin using the 
+`kiwi.plugin()` call, such as:
 
-1. Start by cloning the sample plugin:
-
-```bash
-git clone https://github.com/kiwiirc/ns-kiwi-plugin-sample ns-kiwi-plugin-my-plugin
-cd ns-kiwi-plugin-my-plugin
-rm -rf .git
+```js
+kiwi.plugin('plugin_name', function(kiwi, log) {
+    // Plugin code here
+});
 ```
 
-2. Change the name of the package in `src/package.json` to your plugin name (e.g. `ns-kiwi-plugin-my-plugin`).
+Your plugin function will be called once mobile app has been loaded and ready to start. You can listen for events and use any of the below API in your plugin.
 
+As a very simple example, this plugin will listen for any new networks being created and set the default server address to `irc.freenode.net`:
+
+```js
+kiwi.plugin('my_plugin', function(kiwi) {
+    kiwi.on('network.new', function(event) {
+        event.network.connection.server = 'irc.freenode.net';
+        event.network.connection.port = 6667;
+    });
+});
+```
+
+# Plugin development
 ### Using live-sync while developing the plugin
 
-The command `tns plugin install` installs the plugin under `node_modules`, which could make
+The command `ns plugin install` installs the plugin under `node_modules`, which could make
 the development very hard. The best way to develop Kiwi mobile plugins is to install them
 from a local directory and use `yarn link` to link the directory under `node_modules` to your
 source code.
 
 ```bash
 cd /path/to/kiwiirc-mobile/mobile
-tns plugin install /path/to/ns-kiwi-plugin-my-plugin/src
+tns plugin install /path/to/my-plugin/src
 
-cd /path/to/ns-kiwi-plugin-my-plugin/src
+cd /path/to/my-plugin/src
 yarn link
 
 cd /path/to/kiwiirc-mobile/mobile
-yarn link ns-kiwi-plugin-my-plugin
+yarn link my-plugin
 ```
 
 This way, you can keep developing the plugin in its place
-(`/path/to/ns-kiwi-plugin-my-plugin/src`) and each time you change the code, webpack will
+(`/path/to/my-plugin/src`) and each time you change the code, webpack will
 re-pack it and the app will reload.
 
-## Plugin initialization
+## API
 
-The plugin source directory must include an `index.js` file. This file will be the entry point of the plugin, responsible for its initialization. A plugin can be initialized in two ways:
+### kiwi.*
 
-- Export an `init()` function:
+The main API interface
+`kiwi` is a global object that 
 
-  ```js
-  export function init(kiwi, log) {
-    // sets log level
-    log.setLevel(2);
-    log('Initialising plugin: MyPlugin');
+| Property | Description |
+| --- | --- |
+| `.version` | The app version (set in `package.json`) |
+| `.Vue` | A Vuejs global instance |
+| `.i18n` | Access to the app's translation module ([i18next](https://www.i18next.com/)) |
+| `.JSON5` | Expose JSON5 so that plugins can use the same config format |
+| `.state` | The Kiwi internal application state. Described [below](#kiwistate) |
+| `.plugin(pluginName, fn)` | Create a new plugin |
+| `.addUi(type, component, props)` | Add a UI component. Described [bellow](#addUI) |
+| `.addStartup(name, startupObject)` | Add a new startup screen. Described [bellow](#addStartup) |
+| `.replaceModule(module, new_module)` | Replace a module or component. Described [bellow](#replaceModule) |
+| `.require(module)` | Get a Kiwi internal module instance |
+| `.on(eventName, fn)` | Listen for an application [event](#event-bus) |
+| `.once(eventName, fn)` | Listen for an application [event](#event-bus) one time only |
+| `.off(eventName, fn)` | Stop listening for an application [event](#event-bus) |
+| `.emit(eventName, arg1, arg2)` | Emit an event on the application ](#event-bus)event bus](#event-bus) |
 
-    // adds a startup method
-    kiwi.addStartup('MyPluginStartup', startup);
-  }
-  ```
+#### kiwi.addUI
 
-- Execute `kiwi.plugin(<plugin name>, <init function>)`:
-  ```js
-  // `kiwi` is globally available
-  kiwi.plugin('samplePlugin', function(kiwi, log) {
-    log.setLevel(2);
-    log('Initialising plugin: Sample Plugin');
-  });
-  ```
+You can add components to:
+- `'input_top'`: above the input box with the full width of the screen.
+- `'input_tool'`: on the right hand side of the input box. Use it to add buttons to send files, for instance.
+- `browser`: the top left corner of the `StateBrowser` (main window).
 
-## Plugin assets and resources
-
-Plugins can include:
-
-- Code (`.js` and `.vue`). See [Extending the app code](#extending-the-app-code).
-
-- An `assets` directory. The contents of this directory will be copied to the `assets/` directory inside the final bundle.
-
-  For instance, the file `ns-kiwi-plugin-my-plugin/src/assets/images/my_img.jpg` can be accessed from the code with `background: url('~/assets/images/my_img.png')'`.
-
-  > Note: All plugin and app assets will be merged to the same `assets/` directory,
-  > so it may be a good idea to scope your plugin assets in a separate folder. e.g.
-  > `assets/my-plugin/images/my_img.png`.
-
-- A `platforms` directory. This directory holds resource files similar to the `mobile/app/App_Resources` directory. Check the [sample plugin project](https://github.com/kiwiirc/ns-kiwi-plugin-sample) to see the expected folder structure. This directory is used for image resources (see how to use them [here](https://docs.nativescript.org/ui/image-resources)). These can be accessed for example with `background: url('res://my_img')'`.
-
-## Extending the app code
-
-The `kiwi` object in the plugin initialization function is the `GlobalApi` (`mobile/app/libs/GlobalApi.js`) object. We can use it to access and change the app's functionality.
-
-### Module replacement
-
-You can replace any app module (either `.js` or `.vue` files) with:
+Example:
 
 ```js
-import ControlInput from './ControlInput'; // this is a .vue file
+import HelloMessage from './components/HelloMessage';
 
-export function run(kiwi) {
-  // Replace every instance of the ControlInput with our own component
-  kiwi.replaceModule('mobile/components/ControlInput', ControlInput);
-}
+// Add component above the input
+kiwi.addUi(
+    'input_top',  // or 'input_tool', 'browser'
+    HelloMessage, // component
+    { state: kiwi.state } // props
+);
 ```
 
-### Adding a startup
+#### kiwi.addStartup
 
-You can add a startup method with `kiwi.addStartup(<startup name>, <startup>);`, e.g.:
+Adds a startup method. Use it to implement custom login or registration methods.
 
 ```js
-import MyStartup from './startup';
-
-//...
-const startup = new MyStartup();
 kiwi.addStartup('MyStartup', startup);
 ```
 
-The startup class should look like this:
+**`kiwi.addStartup(name: string, startup: StartupInstance)`**  
+  - `name`: name of the startup method. Set the name in `app/assets/config.json`:
+    ```json
+    { ...
+    "startupScreen": "MyStartup",
+    ...}
+    ```
+  - `startup`: startup instance. An object with:
+    - `constructor(state, log)`: constructor called with the [app state](#kiwistate) and a logger.
+    - `startup(vueInstance: VueComponent): Promise`: the startup method.
+      - `vueInstance`: reference to the loading screen component. Use it to navigate to a login screen (e.g. `vueInstance.$navigateTo()` or `vueInstance.$showModal()`);
+      - Returns: `Promise` that when resolved means that the login was successful (app continues to the main screen), when rejected shows the message in an error screen;
+    - `logout(): Promise`: function called before the app does the actual log out. Use it for extra clean up tasks in an external service, for instance.
+      - Returns: `Promise` that when resolved means that the logout can continue, when rejected the logout process stops and the app navigates back to the previous state in the main screen.
+
+
+#### kiwi.replaceModule
+
+Replaces a core module (`.js` or `.vue` file) with a custom implementation. Basically, swaps a file in the core code 
+(`kiwirc-mobile` and `kiwirc-mobile/kiwiirc`) with another one.
+
+Example:
+```js
+kiwi.replaceModule('mobile/components/UserSettings', require('./UserSettings').default);
+```
+
+**`kiwi.replaceModule(moduleName: string, newModule: Object)`**
+  - `moduleName`: path to the module to be replaced. If replacing a module in `kiwiirc-mobile`, prefix the path with `mobile/`.
+  - `newModule`: new module replacing the `moduleName`
+
+
+### kiwi.state.*
+The Kiwi internal application state. The entire application uses this interface to modify state such as adding or removing networks, adding buffers / messages / users, getting the active network or buffer.
 
 ```js
-export default class MyStartup {
-    /**
-     * Startup function.
-     * @param {Object} vueInstance Instance of the Vue component calling this function.
-     * @returns {Promise} If resolved, the app will continue the main Page.
-     */
-    startup(vueInstance) {
-        return new Promise((resolve, reject) => {
-            // Navigatins to a Login Page, for instance.
-            vueInstance.$navigateTo(MyLoginPage, { });
+exportState(includeBuffers)
+importState(stateStr)
+resetState()
 
-            // at some point `ircClientConnect()` should be called, then
-            resolve('done');
-            // then the app will continue to the main Page.
+setting(name, val)
+getSetting(name)
+setSetting(name, newVal)
 
-            // or
-            reject('because reasons');
-            // App will display the error
-        });
-    }
+getActiveNetwork()
+getNetwork(networkid)
+getNetworkFromAddress(netAddr)
+addNetwork(name, nick, serverInfo)
+removeNetwork(networkid)
 
-    /**
-     * (optional) Function called on logout.
-     * @returns {Promise} If resolved, the app will continue the login. If rejected, the logout process will be aborted and the App will return to the main page.
-     */
-    logout() { }
+getActiveBuffer()
+setActiveBuffer(networkid, bufferName)
+openLastActiveBuffer()
+updateBufferLastRead(networkid, bufferName)
+getOrAddBufferByName(networkid, bufferName)
+getBufferByName(networkid, bufferName)
+addBuffer(networkid, bufferName)
+removeBuffer(buffer)
+
+addMessage(buffer, message)
+getMessages(buffer)
+
+getUser(networkid, nick, usersArr_)
+usersTransaction(networkid, fn)
+addUser(networkid, user, usersArr_)
+removeUser(networkid, user)
+addMultipleUsersToBuffer(buffer, newUsers)
+addUserToBuffer(buffer, user, modes)
+removeUserFromBuffer(buffer, nick)
+getBuffersWithUser(networkid, nick)
+changeUserNick(networkid, oldNick, newNick)
+
+getStartups()
 ```
 
-Remember to set the startup in `mobile/app/assets/config.json`:
+### Event bus
+This is the main event bus for the application. Events are emitted by many places and some allow you to emit your own so that you can interact with Kiwi.
 
-```json
-"startupScreen": "MyStartup"
-```
+These events can be listened for via `kiwi.on('event.name', function() {})`. For events marked that they can be fired from plugins, you can do so via `kiwi.emit('event.name', arg1, arg2)`.
 
-## Plugin themes
+| Name | Arguments | Can be fired from plugins | Description |
+| --- | --- | --- | --- |
+| `app.suspended` | | No | Called when the app goes to the background |
+| `app.resumed` | | No | Called when the app returns from background |
+| `ui.active_buffer` | buffer | yes | Show a buffer page |
+| `server.open` | network, openTab | yes | Show the settings for a given network |
+| `input.raw` | rawText | yes | Simulate user input |
+| `userbox.show` | user, props | yes | Open the user information panel for the given user |
+| `irc.raw` | command, event, network | no | Raw IRC message from the IRC server |
+| `irc.raw.[command]` | command, event, network | no | A raw IRC message from the IRC server |
+| `irc.[command]` | event, network, ircEventObj | no | A parsed IRC event from the IRC library |
+| `network.new` | eventObj | no | A new network has been added |
+| `network.removed` | eventObj | no | A network has been deleted |
+| `network.connecting` | eventObj | no | A network connection is about to start |
+| `buffer.new` | eventObj | no | A new buffer has been added |
+| `buffer.close` | eventObj | no | A buffer has been closed |
+| `message.render` | eventObj | no | A message is about to be rendered |
 
-1. Create the `.css` theme file in the `assets` folder, e.g. `ns-kiwi-plugin-my-plugin/src/assets/themes/my_theme.css`.
-
-   The css should contain the theme palette. You can also add other custom classes. See the sample theme [here](https://github.com/kiwiirc/ns-kiwi-plugin-sample/blob/master/src/assets/themes/sample-theme.css).
-
-2. Set the theme in `mobile/app/assets/config.json`:
-
-   ```json
-       "theme": "My Theme",
-       "themes": [
-           {
-               "name": "My Theme",
-               "url": "assets/themes/my_theme.css"
-           },
-   ```
