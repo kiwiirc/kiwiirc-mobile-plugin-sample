@@ -2,18 +2,14 @@
 
 This project is a sample plugin for the Kiwi mobile app.
 
-# Plugin system
-
-The Kiwi mobile app has a plugin system, similar to the [Kiwi web app plugin system](https://github.com/kiwiirc/kiwiirc/wiki/Plugins).
-
 ## Creating a plugin
 
 These Kiwi mobile plugins are [NativeScript plugins](https://docs.nativescript.org/plugins/plugin-reference). 
 This means that they must follow the [NativeScript plugin requirements](https://docs.nativescript.org/plugins/plugin-reference#create-a-plugin).
 
-Use the [ns-kiwi-plugin-sample](https://github.com/kiwiirc/ns-kiwi-plugin-sample) as a starting point.
+Use the [kiwiirc-mobile-plugin-sample](https://github.com/kiwiirc/kiwiirc-mobile-plugin-sample) as a starting point.
 
-1. Download the repo as a [.zip file](https://github.com/kiwiirc/ns-kiwi-plugin-sample/archive/master.zip);
+1. Download the repo as a [.zip file](https://github.com/kiwiirc/kiwiirc-mobile-plugin-sample/archive/master.zip);
 
 2. Change the name of the package in `src/package.json` (e.g. `my-kiwi-plugin`);
 
@@ -28,6 +24,13 @@ Use the [ns-kiwi-plugin-sample](https://github.com/kiwiirc/ns-kiwi-plugin-sample
   - A local `.tar.gz` of the directory containing the `package.json`: `ns plugin install /path/to/plugin.tar.gz`;
 
   - A remote `.tar.gz` of the directory containing the `package.json`: `ns plugin install https://example.com/plugin.tar.gz`.
+
+
+4. `require()` the plugin in the App Project's `app/plugins.js``:
+    ```js
+    // require npm plugins:
+    require('my-kiwi-plugin');
+    ```
 
 Inside the main `.js` file (`src/index.js`), you must register a plugin using the 
 `kiwi.plugin()` call, such as:
@@ -76,150 +79,4 @@ re-pack it and the app will reload.
 
 ## API
 
-### kiwi.*
-
-The main API interface
-`kiwi` is a global object that 
-
-| Property | Description |
-| --- | --- |
-| `.version` | The app version (set in `package.json`) |
-| `.Vue` | A Vuejs global instance |
-| `.i18n` | Access to the app's translation module ([i18next](https://www.i18next.com/)) |
-| `.JSON5` | Expose JSON5 so that plugins can use the same config format |
-| `.state` | The Kiwi internal application state. Described [below](#kiwistate) |
-| `.plugin(pluginName, fn)` | Create a new plugin |
-| `.addUi(type, component, props)` | Add a UI component. Described [bellow](#addUI) |
-| `.addStartup(name, startupObject)` | Add a new startup screen. Described [bellow](#addStartup) |
-| `.replaceModule(module, new_module)` | Replace a module or component. Described [bellow](#replaceModule) |
-| `.require(module)` | Get a Kiwi internal module instance |
-| `.on(eventName, fn)` | Listen for an application [event](#event-bus) |
-| `.once(eventName, fn)` | Listen for an application [event](#event-bus) one time only |
-| `.off(eventName, fn)` | Stop listening for an application [event](#event-bus) |
-| `.emit(eventName, arg1, arg2)` | Emit an event on the application ](#event-bus)event bus](#event-bus) |
-
-#### kiwi.addUI
-
-You can add components to:
-- `'input_top'`: above the input box with the full width of the screen.
-- `'input_tool'`: on the right hand side of the input box. Use it to add buttons to send files, for instance.
-- `browser`: the top left corner of the `StateBrowser` (main window).
-
-Example:
-
-```js
-import HelloMessage from './components/HelloMessage';
-
-// Add component above the input
-kiwi.addUi(
-    'input_top',  // or 'input_tool', 'browser'
-    HelloMessage, // component
-    { state: kiwi.state } // props
-);
-```
-
-#### kiwi.addStartup
-
-Adds a startup method. Use it to implement custom login or registration methods.
-
-```js
-kiwi.addStartup('MyStartup', startup);
-```
-
-**`kiwi.addStartup(name: string, startup: StartupInstance)`**  
-  - `name`: name of the startup method. Set the name in `app/assets/config.json`:
-    ```json
-    { ...
-    "startupScreen": "MyStartup",
-    ...}
-    ```
-  - `startup`: startup instance. An object with:
-    - `constructor(state, log)`: constructor called with the [app state](#kiwistate) and a logger.
-    - `startup(vueInstance: VueComponent): Promise`: the startup method.
-      - `vueInstance`: reference to the loading screen component. Use it to navigate to a login screen (e.g. `vueInstance.$navigateTo()` or `vueInstance.$showModal()`);
-      - Returns: `Promise` that when resolved means that the login was successful (app continues to the main screen), when rejected shows the message in an error screen;
-    - `logout(): Promise`: function called before the app does the actual log out. Use it for extra clean up tasks in an external service, for instance.
-      - Returns: `Promise` that when resolved means that the logout can continue, when rejected the logout process stops and the app navigates back to the previous state in the main screen.
-
-
-#### kiwi.replaceModule
-
-Replaces a core module (`.js` or `.vue` file) with a custom implementation. Basically, swaps a file in the core code 
-(`kiwirc-mobile` and `kiwirc-mobile/kiwiirc`) with another one.
-
-Example:
-```js
-kiwi.replaceModule('mobile/components/UserSettings', require('./UserSettings').default);
-```
-
-**`kiwi.replaceModule(moduleName: string, newModule: Object)`**
-  - `moduleName`: path to the module to be replaced. If replacing a module in `kiwiirc-mobile`, prefix the path with `mobile/`.
-  - `newModule`: new module replacing the `moduleName`
-
-
-### kiwi.state.*
-The Kiwi internal application state. The entire application uses this interface to modify state such as adding or removing networks, adding buffers / messages / users, getting the active network or buffer.
-
-```js
-exportState(includeBuffers)
-importState(stateStr)
-resetState()
-
-setting(name, val)
-getSetting(name)
-setSetting(name, newVal)
-
-getActiveNetwork()
-getNetwork(networkid)
-getNetworkFromAddress(netAddr)
-addNetwork(name, nick, serverInfo)
-removeNetwork(networkid)
-
-getActiveBuffer()
-setActiveBuffer(networkid, bufferName)
-openLastActiveBuffer()
-updateBufferLastRead(networkid, bufferName)
-getOrAddBufferByName(networkid, bufferName)
-getBufferByName(networkid, bufferName)
-addBuffer(networkid, bufferName)
-removeBuffer(buffer)
-
-addMessage(buffer, message)
-getMessages(buffer)
-
-getUser(networkid, nick, usersArr_)
-usersTransaction(networkid, fn)
-addUser(networkid, user, usersArr_)
-removeUser(networkid, user)
-addMultipleUsersToBuffer(buffer, newUsers)
-addUserToBuffer(buffer, user, modes)
-removeUserFromBuffer(buffer, nick)
-getBuffersWithUser(networkid, nick)
-changeUserNick(networkid, oldNick, newNick)
-
-getStartups()
-```
-
-### Event bus
-This is the main event bus for the application. Events are emitted by many places and some allow you to emit your own so that you can interact with Kiwi.
-
-These events can be listened for via `kiwi.on('event.name', function() {})`. For events marked that they can be fired from plugins, you can do so via `kiwi.emit('event.name', arg1, arg2)`.
-
-| Name | Arguments | Can be fired from plugins | Description |
-| --- | --- | --- | --- |
-| `app.suspended` | | No | Called when the app goes to the background |
-| `app.resumed` | | No | Called when the app returns from background |
-| `ui.active_buffer` | buffer | yes | Show a buffer page |
-| `server.open` | network, openTab | yes | Show the settings for a given network |
-| `input.raw` | rawText | yes | Simulate user input |
-| `userbox.show` | user, props | yes | Open the user information panel for the given user |
-| `irc.raw` | command, event, network | no | Raw IRC message from the IRC server |
-| `irc.raw.[command]` | command, event, network | no | A raw IRC message from the IRC server |
-| `irc.[command]` | event, network, ircEventObj | no | A parsed IRC event from the IRC library |
-| `network.new` | eventObj | no | A new network has been added |
-| `network.removed` | eventObj | no | A network has been deleted |
-| `network.connecting` | eventObj | no | A network connection is about to start |
-| `buffer.new` | eventObj | no | A new buffer has been added |
-| `buffer.close` | eventObj | no | A buffer has been closed |
-| `message.render` | eventObj | no | A message is about to be rendered |
-
+The plugin API is described [here](https://github.com/kiwiirc/kiwiirc-mobile/blob/master/docs/plugins.md)
